@@ -1,181 +1,163 @@
+// Costanti Crioscopiche (MM/i*Kf) in (g * kg_acqua) / (mol * mol * °C)
+const CRIOSCOPIA_NACL = 0.0157; 
+const CRIOSCOPIA_CACL2 = 0.0199; 
+// Proporzionalità, in g di acqua/ghiaccio per metro quadrato.
+// 40 g/m² è un valore tipico di riferimento per strato di ghiaccio.
+const C_ACQUA = 40; 
+
 const calculateBtn = document.getElementById('calculateBtn');
 const resultArea = document.getElementById('resultArea');
 const roadLength = document.getElementById('roadLength');
 const minTemp = document.getElementById('minTemp');
 const humidity = document.getElementById('humidity');
 
-const prezzoCaCl2 = 2;
-const prezzoNaCl = 0.30;
-const larghezzaMedia = 3;
+const prezzoCaCl2 = 2; // Prezzo per kg
+const prezzoNaCl = 0.30; // Prezzo per kg
+const larghezzaMedia = 3; // Larghezza della strada in metri (m)
 
-function calcNaCl() {
-    // area = K * L  (conversione g -> kg incorporata)
-    const K = roadLength;
-    const L = larghezzaMedia;
+/**
+ * Calcola la massa di Cloruro di Sodio (NaCl) necessaria basata sulla crioscopia.
+ * @param {number} L - Lunghezza del percorso (in KM).
+ * @param {number} T - Temperatura ambiente (in °C).
+ * @param {number} U - Umidità (0-100).
+ * @returns {number} Massa di NaCl in chilogrammi (kg).
+ */
+function calcNaCl(L, T, U) {
+    // waterFactor: Aumenta la quantità di sale se l'umidità è alta (maggiore copertura di ghiaccio/acqua)
+    const waterFactor = 1 + 2 * (U / 100); 
 
-    // fattore acqua: (1 + 4 * humidity/100)
-    const waterFactor = 1 + 4 * (humidity / 100);
+    // qNaCl_g_per_m2: Massa teorica di sale necessaria in g/m²
+    // Formula: Fattore_Crioscopico * |T| * C_ACQUA * waterFactor
+    const qNaCl_g_per_m2 = CRIOSCOPIA_NACL * Math.abs(T) * C_ACQUA * waterFactor; 
 
-    // qNaCl per m² (in g/m²) = 1.57 * |T| * (1 + 4*U/100)
-    const qNaCl = 1.57 * Math.abs(minTemp) * waterFactor;
-
-    // massa totale (kg)
-    const totalNaCl = K * L * qNaCl;
-
-    return totalNaCl;
+    // Massa Totale in kg: Area (m²) * Dosaggio (g/m²) / 1000
+    // L è in KM, quindi (L * 1000) è l'area in m²
+    const area_m2 = L * 1000 * larghezzaMedia;
+    
+    return (area_m2 * qNaCl_g_per_m2) / 1000; // in kg
 }
 
-function calcCaCl2() {
-    const K = roadLength;
-    const L = larghezzaMedia;
+/**
+ * Calcola la massa di Cloruro di Calcio (CaCl2) necessaria basata sulla crioscopia.
+ * @param {number} L - Lunghezza del percorso (in KM).
+ * @param {number} T - Temperatura ambiente (in °C).
+ * @param {number} U - Umidità (0-100).
+ * @returns {number} Massa di CaCl2 in chilogrammi (kg).
+ */
+function calcCaCl2(L, T, U) {
+    const waterFactor = 1 + 2 * (U / 100); 
 
-    const waterFactor = 1 + 4 * (humidity / 100);
+    // qCaCl2_g_per_m2: Massa teorica di sale necessaria in g/m²
+    // Formula: Fattore_Crioscopico * |T| * C_ACQUA * waterFactor
+    const qCaCl2_g_per_m2 = CRIOSCOPIA_CACL2 * Math.abs(T) * C_ACQUA * waterFactor;
 
-    // qCaCl2 per m² (in g/m²) = 1.99 * |T| * (1 + 4*U/100)
-    const qCaCl2 = 1.99 * Math.abs(minTemp) * waterFactor;
-
-    // massa totale (kg)
-    const totalCaCl2 = K * L * qCaCl2;
-
-    return totalCaCl2;
+    // Massa Totale in kg: Area (m²) * Dosaggio (g/m²) / 1000
+    // L è in KM, quindi (L * 1000) è l'area in m²
+    const area_m2 = L * 1000 * larghezzaMedia;
+    
+    return (area_m2 * qCaCl2_g_per_m2) / 1000; // in kg
 }
 
 
-// Aggiungiamo l'evento al bottone
 if (calculateBtn) {
     calculateBtn.addEventListener('click', calculateResult);
 }
 
 function calculateResult() {
-    // Recupera i valori di input (come stringhe)
-    let L_val = roadLength.value;
+
+    let L_val = roadLength.value; // Lunghezza in KM
     let T_val = minTemp.value;
     let humidity_val = humidity.value;
 
-    // --- Validazione Input (con alert Bootstrap) ---
     if (L_val.trim() === "" || T_val.trim() === "" || humidity_val.trim() === "") {
         resultArea.innerHTML = `
-            <div class="alert alert-danger mb-0" role="alert">
-                <strong>Errore:</strong> Inserisci tutti i valori.
-            </div>`;
+            <div class="alert alert-danger mb-0">⚠️ Inserisci tutti i valori.</div>`;
         return;
     }
 
     let L = parseFloat(L_val);
     let T = parseFloat(T_val);
+    let U = parseFloat(humidity_val);
 
-    if (isNaN(L) || isNaN(T) || isNaN(parseFloat(humidity_val))) {
+    if (isNaN(L) || isNaN(T) || isNaN(U)) {
         resultArea.innerHTML = `
-            <div class="alert alert-danger mb-0" role="alert">
-                <strong>Errore:</strong> Inserisci solo numeri validi.
-            </div>`;
+            <div class="alert alert-danger mb-0">❌ Inserisci solo numeri validi.</div>`;
         return;
     }
 
     if (L < 0) {
-        resultArea.innerHTML = `
-            <div class="alert alert-danger mb-0" role="alert">
-                <strong>Errore:</strong> La lunghezza non può essere un numero negativo.
-            </div>`;
-        return;
-    }
-    if (humidity_val < 0 || humidity_val > 100) {
-        resultArea.innerHTML = `
-            <div class="alert alert-danger mb-0" role="alert">
-                <strong>Errore:</strong> L'umidità deve essere compresa tra 0 e 100%.
-            </div>`;
+        resultArea.innerHTML = `<div class="alert alert-danger mb-0">🛣️ Lunghezza non valida.</div>`;
         return;
     }
 
-    // Variabile per l'output HTML
+    if (U < 0 || U > 100) {
+        resultArea.innerHTML = `<div class="alert alert-danger mb-0">💧 Umidità 0–100%.</div>`;
+        return;
+    }
+
     let output = "";
 
-    // Temperatura >= 0
     if (T >= 0) {
         output = `
-            <div class="alert alert-success mb-0" role="alert">
-                <h5 class="alert-heading">Tutto OK!</h5>
-                <p class="mb-0">Con una temperatura di <strong>${T}°C</strong> non è necessaria l'applicazione di sale.</p>
-            </div>
-        `;
-
-        //  Temperatura < -20 (Sali inefficaci) LIM TEO -51
-    } else if (T < -20) {
-        output = `
-            <div class="alert alert-warning mb-0" role="alert">
-                <h5 class="alert-heading">Attenzione!</h5>
-                <p class="mb-0">A una temperatura di <strong>${T}°C</strong>, né il Cloruro di Sodio né il Cloruro di Calcio sono efficaci. Considera metodi alternativi per la gestione del ghiaccio.</p>
-            </div>
-        `;
-        // Temperatura < -7 (Solo CaCl2) LIM TEO -21
-    } else if (T < -7) {
-        const QCaCl2 = calcCaCl2();
-        let costCaCl2 = QCaCl2 * prezzoCaCl2;
-
-        // Uso dello stile "list-group" anche per il caso singolo
-        output = `
-            <div class="text-start w-100">
-                <h5 class="mb-3 text-center">Opzione Consigliata per ${L} km a ${T}°C</h5>
-                
-                <p class="text-center text-body-secondary mb-3" style="font-size: 0.9rem;">
-                    A questa temperatura bassa, solo il Cloruro di Calcio è efficace.
-                </p>
-                
-                <ul class="list-group">
-                    <li class="list-group-item d-flex justify-content-between align-items-center">
-                        <div>
-                            <strong class="text-info">Cloruro di Calcio (CaCl2)</strong><br>
-                            <small>Quantità: ${QCaCl2.toFixed(2)} kg</small>
-                        </div>
-                        <span class="badge bg-info rounded-pill fs-6">€${costCaCl2.toFixed(2)}</span>
-                    </li>
-                </ul>
-            </div>
-        `;
-
-        // CASO 3: Temperatura tra 0 e -5 (Entrambe le opzioni)
-    } else {
-        let QNaCl = calcNaCl;
-        let costNaCl = QNaCl * prezzoNaCl;
-
-        let QCaCl2 = calcCaCl2;
-        let costCaCl2 = QCaCl2 * prezzoCaCl2;
-
-        // Stile "list-group" per opzioni multiple
-        output = `
-            <div class="text-start w-100">
-                <h5 class="mb-3 text-center">Opzioni per ${L} km a ${T}°C</h5>
-                <ul class="list-group">
-                    
-                    <li class="list-group-item d-flex justify-content-between align-items-center">
-                        <div>
-                            <strong class="text-primary">Opzione 1: Cloruro di Sodio (NaCl)</strong><br>
-                            <small>Quantità: ${QNaCl.toFixed(2)} kg</small>
-                        </div>
-                        <span class="badge bg-primary rounded-pill fs-6">€${costNaCl.toFixed(2)}</span>
-                    </li>
-                    
-                    <li class="list-group-item d-flex justify-content-between align-items-center">
-                        <div>
-                            <strong class="text-info">Opzione 2: Cloruro di Calcio (CaCl2)</strong><br>
-                            <small>Quantità: ${QCaCl2.toFixed(2)} kg</small>
-                        </div>
-                        <span class="badge bg-info rounded-pill fs-6">€${costCaCl2.toFixed(2)}</span>
-                    </li>
-
-                </ul>
-            </div>
-        `;
+        <div class="alert alert-success mb-0">
+            ✅ A ${T}°C non serve il sale.
+        </div>`;
     }
 
-    // Aggiorna l'area dei risultati nell'HTML
+    // Il Cloruro di Calcio (CaCl2) è efficace fino a -20°C / -25°C
+    else if (T < -25) { 
+        output = `
+        <div class="alert alert-warning mb-0">
+            🥶 A ${T}°C i sali non sono efficaci. Il punto di congelamento minimo del CaCl2 è circa -25°C.
+        </div>`;
+    }
+
+    // Tra -7°C (limite inferiore di efficacia del NaCl) e -25°C
+    else if (T < -7) { 
+        const QCaCl2 = calcCaCl2(L, T, U);
+        const costCaCl2 = QCaCl2 * prezzoCaCl2;
+
+        output = `
+        <div class="text-start w-100">
+            <h5 class="mb-3 text-center">Opzione Consigliata per ${L} km a ${T}°C</h5>
+            <ul class="list-group">
+                <li class="list-group-item d-flex justify-content-between">
+                    <div><strong>Cloruro di Calcio (CaCl2)</strong><br>
+                    <small>${QCaCl2.toFixed(2)} kg</small></div>
+                    <span class="badge bg-info fs-6">€${costCaCl2.toFixed(2)}</span>
+                </li>
+            </ul>
+        </div>`;
+    }
+
+    // Tra 0°C e -7°C (dove entrambi i sali sono efficaci)
+    else {
+        const QNaCl = calcNaCl(L, T, U);
+        const QCaCl2 = calcCaCl2(L, T, U);
+
+        const costNaCl = QNaCl * prezzoNaCl;
+        const costCaCl2 = QCaCl2 * prezzoCaCl2;
+
+        output = `
+        <div class="text-start w-100">
+            <h5 class="mb-3 text-center">Opzioni per ${L} km a ${T}°C</h5>
+            <ul class="list-group">
+
+                <li class="list-group-item d-flex justify-content-between">
+                    <div><strong>Cloruro di Sodio (NaCl)</strong><br>
+                    <small>Quantità: ${QNaCl.toFixed(2)} kg</small></div>
+                    <span class="badge bg-primary fs-6">€${costNaCl.toFixed(2)}</span>
+                </li>
+
+                <li class="list-group-item d-flex justify-content-between">
+                    <div><strong>Cloruro di Calcio (CaCl2)</strong><br>
+                    <small>Quantità: ${QCaCl2.toFixed(2)} kg</small></div>
+                    <span class="badge bg-info fs-6">€${costCaCl2.toFixed(2)}</span>
+                </li>
+
+            </ul>
+        </div>`;
+    }
+
     resultArea.innerHTML = output;
-
-    // (Opzionale) Stampa in console per debugging
-    console.log(`Stima effettuata per T=${T} e L=${L}`);
 }
-
-
-// Funzione di utilità (non modificata)
-const appId = typeof __app_id !== 'undefined' ? __app_id : 'default-app-id';
-console.log("App ID (da script.js):", appId);
